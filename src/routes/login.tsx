@@ -12,8 +12,8 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const navigate = useNavigate()
   const { setToken, baseUrl } = useSession()
-  const [identifier, setIdentifier] = useState('user')
-  const [password, setPassword] = useState('user')
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
