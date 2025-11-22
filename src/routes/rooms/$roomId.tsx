@@ -25,6 +25,12 @@ function RoomPage() {
   const navigate = useNavigate()
   const { token, userId, baseUrl, logout } = useSession()
 
+  // Validate roomId parameter
+  if (!roomId || roomId === 'undefined' || roomId === 'null') {
+    navigate({ to: '/rooms' })
+    return null
+  }
+
   const PAGE_SIZE = 20
 
   const [messages, setMessages] = useState<Message[]>([])
@@ -72,7 +78,7 @@ function RoomPage() {
   }
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !roomId || roomId === 'undefined' || roomId === 'null') return
     let active = true
 
     const loadPage = async (pageToLoad: number, stickBottom = false) => {
@@ -129,7 +135,7 @@ function RoomPage() {
   }, [roomId, token, baseUrl])
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !roomId || roomId === 'undefined' || roomId === 'null') {
       setSocketStatus('idle')
       return
     }
@@ -176,7 +182,7 @@ function RoomPage() {
   }, [sortedMessages.length])
 
   const loadOlder = async () => {
-    if (!hasMore || loadingOlder) return
+    if (!hasMore || loadingOlder || !roomId || roomId === 'undefined' || roomId === 'null') return
     const el = messagesContainerRef.current
     const prevHeight = el?.scrollHeight || 0
     stickToBottomRef.current = false
@@ -223,7 +229,7 @@ function RoomPage() {
   const onSend = async (e: FormEvent) => {
     e.preventDefault()
     if (!content.trim()) return
-    if (!token || !userId) {
+    if (!token || !userId || !roomId || roomId === 'undefined' || roomId === 'null') {
       setError('Log in to send messages.')
       return
     }
@@ -255,7 +261,7 @@ function RoomPage() {
   }
 
   const onLeave = async () => {
-    if (!token) return
+    if (!token || !roomId || roomId === 'undefined' || roomId === 'null') return
     try {
       await leaveRoom(roomId, { token, baseUrl })
       navigate({ to: '/rooms' })

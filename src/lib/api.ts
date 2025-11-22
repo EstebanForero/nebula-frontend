@@ -103,7 +103,7 @@ export async function login(
   payload: { identifier: string; password: string },
   opts: ApiOptions,
 ) {
-  const data = await apiFetch<Record<string, unknown> | string>('/login', {
+  const data = await apiFetch<Record<string, unknown> | string>('/auth/login', {
     ...opts,
     init: {
       method: 'POST',
@@ -128,7 +128,7 @@ export async function register(
   payload: { username: string; email: string; password: string },
   opts: ApiOptions,
 ) {
-  return apiFetch<Record<string, unknown>>('/register', {
+  return apiFetch<Record<string, unknown>>('/auth/register', {
     ...opts,
     init: {
       method: 'POST',
@@ -141,7 +141,7 @@ export async function createRoom(
   payload: { name: string; visibility: Visibility; password?: string | null },
   opts: ApiOptions,
 ) {
-  return apiFetch<Room>('/room', {
+  return apiFetch<Room>('/rooms', {
     ...opts,
     init: {
       method: 'POST',
@@ -158,12 +158,11 @@ export async function joinRoom(
   payload: { password?: string | null } = {},
   opts: ApiOptions = {},
 ) {
-  return apiFetch<Room>('/room/join', {
+  return apiFetch<Room>(`/rooms/${roomId}/members`, {
     ...opts,
     init: {
       method: 'POST',
       body: JSON.stringify({
-        room_id: roomId,
         password: payload.password ?? null,
       }),
     },
@@ -182,11 +181,13 @@ export async function sendMessage(
   payload: { room_id: string; content: string },
   opts: ApiOptions,
 ) {
-  return apiFetch<Message>('/message', {
+  return apiFetch<Message>(`/rooms/${payload.room_id}/messages`, {
     ...opts,
     init: {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        content: payload.content,
+      }),
     },
   })
 }
@@ -195,19 +196,18 @@ export async function getMessages(
   params: { room_id: string; page?: number; page_size?: number },
   opts: ApiOptions,
 ) {
-  const search = new URLSearchParams({
-    room_id: params.room_id,
-  })
+  const search = new URLSearchParams()
   if (params.page) search.set('page', String(params.page))
   if (params.page_size) search.set('page_size', String(params.page_size))
 
-  return apiFetch<Message[]>(`/message?${search.toString()}`, opts)
+  const queryString = search.toString() ? `?${search.toString()}` : ''
+  return apiFetch<Message[]>(`/rooms/${params.room_id}/messages${queryString}`, opts)
 }
 
 export function buildRoomWsUrl(roomId: string, baseUrl?: string, token?: string) {
   const base = normalizeBaseUrl(baseUrl)
   const wsBase = base.replace(/^https?/i, (m) => (m.toLowerCase() === 'https' ? 'wss' : 'ws'))
-  const url = new URL(`/ws/room/${roomId}`, wsBase)
+  const url = new URL(`/ws/rooms/${roomId}`, wsBase)
   if (token) {
     url.searchParams.set('token', token)
   }
@@ -219,9 +219,9 @@ export function isAuthError(err: unknown) {
 }
 
 export async function leaveRoom(roomId: string, opts: ApiOptions) {
-  return apiFetch<void>(`/room/leave/${roomId}`, {
+  return apiFetch<void>(`/rooms/${roomId}/members/me`, {
     ...opts,
-    init: { method: 'POST' },
+    init: { method: 'DELETE' },
   })
 }
 
@@ -230,7 +230,7 @@ export async function getMe(opts: ApiOptions) {
 }
 
 export async function getRoomMembers(roomId: string, opts: ApiOptions) {
-  return apiFetch<User[]>(`/room/members/${roomId}`, opts)
+  return apiFetch<User[]>(`/rooms/${roomId}/members`, opts)
 }
 
 export async function subscribeWebPush(
