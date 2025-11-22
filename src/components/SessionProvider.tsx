@@ -6,10 +6,12 @@ import { DEFAULT_BASE_URL } from '../lib/api'
 type SessionContextType = {
   token: string | null
   userId: string | null
+  user: { id: string; username: string; email: string } | null
   baseUrl: string
   setToken: (token: string | null) => void
   setBaseUrl: (baseUrl: string) => void
   logout: () => void
+  setUser: (user: { id: string; username: string; email: string } | null) => void
 }
 
 const TOKEN_KEY = 'nebula-token'
@@ -32,6 +34,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return DEFAULT_BASE_URL
     return localStorage.getItem(BASE_URL_KEY) || DEFAULT_BASE_URL
   })
+  const [user, setUser] = useState<{ id: string; username: string; email: string } | null>(null)
 
   useEffect(() => {
     if (token !== null) {
@@ -40,6 +43,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } else {
       localStorage.removeItem(TOKEN_KEY)
       setUserId(null)
+      setUser(null)
     }
   }, [token])
 
@@ -53,12 +57,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       token,
       userId,
+      user,
       baseUrl,
       setToken: (newToken: string | null) => setTokenState(newToken),
       setBaseUrl: (url: string) => setBaseUrlState(url),
       logout: () => setTokenState(null),
+      setUser,
     }),
-    [token, userId, baseUrl],
+    [token, userId, baseUrl, user],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

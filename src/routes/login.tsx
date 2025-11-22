@@ -2,7 +2,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 
-import { login } from '../lib/api'
+import { getMe, login } from '../lib/api'
 import { useSession } from '../components/SessionProvider'
 
 export const Route = createFileRoute('/login')({
@@ -11,7 +11,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { setToken, baseUrl } = useSession()
+  const { setToken, setUser, baseUrl } = useSession()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -24,6 +24,12 @@ function LoginPage() {
     try {
       const { token } = await login({ identifier, password }, { baseUrl })
       setToken(token)
+      try {
+        const profile = await getMe({ token, baseUrl })
+        setUser(profile)
+      } catch {
+        setUser(null)
+      }
       navigate({ to: '/rooms' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')

@@ -2,6 +2,9 @@ import { Link, Outlet, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { useSession } from '../components/SessionProvider'
+import { useState } from 'react'
+import { enablePush } from '../lib/notifications'
+import { BellRing } from 'lucide-react'
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -9,6 +12,24 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const { token, logout, baseUrl, setBaseUrl } = useSession()
+  const [notifStatus, setNotifStatus] = useState<'idle' | 'pending' | 'enabled' | 'error'>('idle')
+  const [notifError, setNotifError] = useState<string | null>(null)
+
+  const handleEnableNotifications = async () => {
+    if (!token) {
+      setNotifError('Log in to enable notifications')
+      return
+    }
+    setNotifStatus('pending')
+    setNotifError(null)
+    try {
+      await enablePush({ token, baseUrl })
+      setNotifStatus('enabled')
+    } catch (err) {
+      setNotifStatus('error')
+      setNotifError(err instanceof Error ? err.message : 'Unable to enable notifications')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#05070d] text-slate-100 antialiased">
@@ -55,6 +76,22 @@ function RootLayout() {
                 title="Base URL for API requests"
               />
             </div>
+            <button
+              onClick={handleEnableNotifications}
+              className={`hidden items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold sm:flex ${
+                notifStatus === 'enabled'
+                  ? 'border-emerald-400/60 bg-emerald-500/10 text-emerald-100'
+                  : 'border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/60 hover:text-white'
+              }`}
+              title="Enable web push notifications"
+            >
+              <BellRing size={16} />
+              {notifStatus === 'pending'
+                ? 'Enabling…'
+                : notifStatus === 'enabled'
+                ? 'Notifications on'
+                : 'Enable notifications'}
+            </button>
             {token ? (
               <button
                 onClick={logout}
@@ -77,6 +114,12 @@ function RootLayout() {
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <Outlet />
       </main>
+
+      {notifError && (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm text-rose-100 shadow-lg shadow-rose-500/30">
+          {notifError}
+        </div>
+      )}
 
       <TanStackDevtools
         config={{

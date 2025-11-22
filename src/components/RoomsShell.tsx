@@ -6,6 +6,7 @@ import { Plus, RefreshCw } from 'lucide-react'
 import type { Room, Visibility } from '../lib/api'
 import { createRoom, getPublicRooms, getUserRooms, isAuthError, joinRoom } from '../lib/api'
 import { useSession } from './SessionProvider'
+import { useRouterState } from '@tanstack/react-router'
 
 type RoomsShellProps = {
   children: ReactNode
@@ -14,6 +15,7 @@ type RoomsShellProps = {
 
 export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
   const { token, baseUrl, logout } = useSession()
+  const routerState = useRouterState()
   const navigate = useNavigate()
   const [userRooms, setUserRooms] = useState<Room[]>([])
   const [publicRooms, setPublicRooms] = useState<Room[]>([])
@@ -62,7 +64,7 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
   useEffect(() => {
     fetchRooms()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, baseUrl])
+  }, [token, baseUrl, routerState.location.pathname, routerState.location.search])
 
   const handleJoin = async (room: Room, password?: string | null) => {
     if (!token) {

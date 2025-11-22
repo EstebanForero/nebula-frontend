@@ -1,5 +1,7 @@
 const DEFAULT_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8080'
+const DEFAULT_NOTIFICATION_URL =
+  (import.meta.env.VITE_NOTIFICATION_BASE_URL as string | undefined) || 'http://localhost:3010'
 
 export type Visibility = 'public' | 'private'
 
@@ -19,10 +21,27 @@ export type Message = {
   createdAt: string
 }
 
+export type User = {
+  id: string
+  username: string
+  email: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type WebPushSubscription = {
+  endpoint: string
+  keys: {
+    p256dh: string
+    auth: string
+  }
+}
+
 type ApiOptions = {
   token?: string | null
   baseUrl?: string
   init?: RequestInit
+  notificationBaseUrl?: string
 }
 
 export class HttpError extends Error {
@@ -139,11 +158,14 @@ export async function joinRoom(
   payload: { password?: string | null } = {},
   opts: ApiOptions = {},
 ) {
-  return apiFetch<Room>(`/room/join/${roomId}`, {
+  return apiFetch<Room>('/room/join', {
     ...opts,
     init: {
       method: 'POST',
-      body: payload.password ? JSON.stringify(payload) : undefined,
+      body: JSON.stringify({
+        room_id: roomId,
+        password: payload.password ?? null,
+      }),
     },
   })
 }
@@ -196,4 +218,42 @@ export function isAuthError(err: unknown) {
   return err instanceof HttpError && err.status === 401
 }
 
-export { DEFAULT_BASE_URL }
+export async function leaveRoom(roomId: string, opts: ApiOptions) {
+  return apiFetch<void>(`/room/leave/${roomId}`, {
+    ...opts,
+    init: { method: 'POST' },
+  })
+}
+
+export async function getMe(opts: ApiOptions) {
+  return apiFetch<User>('/me', opts)
+}
+
+export async function getRoomMembers(roomId: string, opts: ApiOptions) {
+  return apiFetch<User[]>(`/room/members/${roomId}`, opts)
+}
+
+export async function subscribeWebPush(
+  subscription: WebPushSubscription,
+  opts: ApiOptions & { notificationBaseUrl?: string },
+) {
+  const base = opts.notificationBaseUrl || DEFAULT_NOTIFICATION_URL
+  const url = `${normalizeBaseUrl(base)}/webpush/subscribe`
+  const headers = new Headers(opts.init?.headers ?? {})
+  headers.set('Content-Type', 'application/json')
+  if (opts.token) headers.set('Authorization', `Bearer ${opts.token}`)
+
+  const res = await fetch(url, {
+    ...opts.init,
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ subscription }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new HttpError(text || `Request failed with status ${res.status}`, res.status, text)
+  }
+  return (await res.json()) as Record<string, unknown>
+}
+
+export { DEFAULT_BASE_URL, DEFAULT_NOTIFICATION_URL }

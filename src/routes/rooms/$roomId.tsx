@@ -3,7 +3,14 @@ import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Message } from '../../lib/api'
-import { buildRoomWsUrl, getMessages, isAuthError, sendMessage } from '../../lib/api'
+import {
+  buildRoomWsUrl,
+  getMessages,
+  getRoomMembers,
+  isAuthError,
+  leaveRoom,
+  sendMessage,
+} from '../../lib/api'
 import { useSession } from '../../components/SessionProvider'
 import { RoomsShell } from '../../components/RoomsShell'
 
@@ -32,6 +39,7 @@ function RoomPage() {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const stickToBottomRef = useRef(true)
   const lastScrollTopRef = useRef<number>(0)
+  const [members, setMembers] = useState<Record<string, string>>({})
 
   const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
@@ -97,6 +105,23 @@ function RoomPage() {
     }
 
     loadPage(1, true)
+    ;(async () => {
+      try {
+        const memberList = await getRoomMembers(roomId, { token, baseUrl })
+        if (!active) return
+        const map: Record<string, string> = {}
+        memberList.forEach((m) => {
+          map[m.id] = m.username
+        })
+        setMembers(map)
+      } catch (err) {
+        if (isAuthError(err)) {
+          logout()
+          navigate({ to: '/login' })
+          return
+        }
+      }
+    })()
 
     return () => {
       active = false
@@ -229,6 +254,21 @@ function RoomPage() {
     }
   }
 
+  const onLeave = async () => {
+    if (!token) return
+    try {
+      await leaveRoom(roomId, { token, baseUrl })
+      navigate({ to: '/rooms' })
+    } catch (err) {
+      if (isAuthError(err)) {
+        logout()
+        navigate({ to: '/login' })
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Unable to leave room')
+    }
+  }
+
   const contentArea = token ? (
     <section className="flex h-[75vh] flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-white/[0.02] shadow-2xl shadow-cyan-500/5">
       <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
@@ -237,7 +277,15 @@ function RoomPage() {
           <h2 className="text-xl font-semibold text-white">Room timeline</h2>
           <p className="mt-1 text-xs text-slate-400 break-all">ID: {roomId}</p>
         </div>
-        <StatusPill status={socketStatus} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onLeave}
+            className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-rose-400/60 hover:text-white transition"
+          >
+            Leave
+          </button>
+          <StatusPill status={socketStatus} />
+        </div>
       </div>
 
       <div
@@ -258,6 +306,7 @@ function RoomPage() {
         )}
         {sortedMessages.map((message) => {
           const isMine = userId && message.senderId === userId
+          const displayName = isMine ? 'You' : members[message.senderId] || message.senderId
           return (
             <article
               key={message.id}
@@ -273,7 +322,7 @@ function RoomPage() {
                     isMine ? 'text-cyan-200' : 'text-slate-400'
                   }`}
                 >
-                  {isMine ? 'You' : message.senderId}
+                  {displayName}
                 </span>
                 <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
               </div>
