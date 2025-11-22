@@ -15,7 +15,7 @@ type SocketStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 function RoomPage() {
   const { roomId } = Route.useParams()
   const navigate = useNavigate()
-  const { token, baseUrl, logout } = useSession()
+  const { token, userId, baseUrl, logout } = useSession()
 
   const [messages, setMessages] = useState<Message[]>([])
   const [content, setContent] = useState('')
@@ -111,7 +111,7 @@ function RoomPage() {
   const onSend = async (e: FormEvent) => {
     e.preventDefault()
     if (!content.trim()) return
-    if (!token) {
+    if (!token || !userId) {
       setError('Log in to send messages.')
       return
     }
@@ -121,7 +121,15 @@ function RoomPage() {
         { room_id: roomId, content },
         { token, baseUrl },
       )
-      setMessages((prev) => [...prev, newMessage])
+      const optimistic = {
+        id: (newMessage as Message | undefined)?.id ?? crypto.randomUUID(),
+        roomId: roomId,
+        senderId: userId,
+        content,
+        createdAt:
+          (newMessage as Message | undefined)?.createdAt ?? new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, (newMessage as Message) || (optimistic as Message)])
       setContent('')
     } catch (err) {
       if (isAuthError(err)) {
@@ -195,18 +203,31 @@ function RoomPage() {
           {!loading && sortedMessages.length === 0 && (
             <p className="text-slate-500">No messages yet. Be the first to speak.</p>
           )}
-          {sortedMessages.map((message) => (
-            <article
-              key={message.id}
-              className="group rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/20"
-            >
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-mono text-[11px] text-cyan-200">{message.senderId}</span>
-                <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
-              </div>
-              <p className="mt-2 leading-relaxed text-slate-100">{message.content}</p>
-            </article>
-          ))}
+          {sortedMessages.map((message) => {
+            const isMine = userId && message.senderId === userId
+            return (
+              <article
+                key={message.id}
+                className={`group rounded-xl border px-4 py-3 text-sm shadow-inner shadow-black/20 ${
+                  isMine
+                    ? 'ml-auto max-w-[85%] border-cyan-500/40 bg-cyan-500/10 text-white'
+                    : 'border-white/5 bg-white/5 text-white'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <span
+                    className={`font-mono text-[11px] ${
+                      isMine ? 'text-cyan-200' : 'text-slate-400'
+                    }`}
+                  >
+                    {isMine ? 'You' : message.senderId}
+                  </span>
+                  <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
+                </div>
+                <p className="mt-2 leading-relaxed text-slate-100">{message.content}</p>
+              </article>
+            )
+          })}
           <div ref={bottomRef} />
         </div>
 
