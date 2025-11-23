@@ -14,7 +14,7 @@ type RoomsShellProps = {
 }
 
 export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
-  const { token, baseUrl, logout } = useSession()
+  const { token, logout } = useSession()
   const routerState = useRouterState()
   const navigate = useNavigate()
   const [userRooms, setUserRooms] = useState<Room[]>([])
@@ -44,11 +44,11 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
     setError(null)
     try {
       const [mine, pubs] = await Promise.all([
-        getUserRooms({ token, baseUrl }),
-        getPublicRooms({ token, baseUrl }),
+        getUserRooms({ token }),
+        getPublicRooms({ token }),
       ])
-      setUserRooms(mine)
-      setPublicRooms(pubs)
+      setUserRooms(Array.isArray(mine) ? mine : [])
+      setPublicRooms(Array.isArray(pubs) ? pubs : [])
     } catch (err) {
       if (isAuthError(err)) {
         logout()
@@ -64,7 +64,7 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
   useEffect(() => {
     fetchRooms()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, baseUrl, routerState.location.pathname, routerState.location.search])
+  }, [token, routerState.location.pathname, routerState.location.search])
 
   const handleJoin = async (room: Room, password?: string | null) => {
     if (!token) {
@@ -74,7 +74,7 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
     setJoiningId(room.id)
     setError(null)
     try {
-      await joinRoom(room.id, { password: password ?? null }, { token, baseUrl })
+      await joinRoom(room.id, { password: password ?? null }, { token })
       setUserRooms((prev) => {
         const exists = prev.some((r) => r.id === room.id)
         return exists ? prev : [...prev, room]
@@ -121,7 +121,7 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
           visibility: createVisibility,
           password: createVisibility === 'private' ? createPassword || null : null,
         },
-        { token, baseUrl },
+        { token },
       )
       setUserRooms((prev) => [...prev, newRoom])
       if (newRoom.visibility === 'public') {
@@ -178,7 +178,7 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
                 No rooms yet. Click the plus to explore or join a private room.
               </p>
             )}
-            {userRooms.map((room) => (
+            {Array.isArray(userRooms) && userRooms.map((room) => (
               <Link
                 key={room.id}
                 to="/rooms/$roomId"
@@ -237,7 +237,7 @@ export function RoomsShell({ children, activeRoomId }: RoomsShellProps) {
                   />
                 </div>
                 <div className="max-h-80 space-y-2 overflow-y-auto pr-2">
-                  {filteredPublic.map((room) => (
+                  {Array.isArray(filteredPublic) && filteredPublic.map((room) => (
                     <div
                       key={room.id}
                       className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2"

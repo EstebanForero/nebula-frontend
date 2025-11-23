@@ -11,7 +11,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { setToken, setUser, baseUrl } = useSession()
+  const { setToken, setUser } = useSession()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -22,17 +22,17 @@ function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const { token } = await login({ identifier, password }, { baseUrl })
+      const { token } = await login({ identifier, password }, {})
       setToken(token)
       try {
-        const profile = await getMe({ token, baseUrl })
+        const profile = await getMe({ token })
         setUser(profile)
       } catch {
         setUser(null)
       }
       navigate({ to: '/rooms' })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError('Invalid credentials')
     } finally {
       setLoading(false)
     }

@@ -1,7 +1,52 @@
-const DEFAULT_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8080'
-const DEFAULT_NOTIFICATION_URL =
-  (import.meta.env.VITE_NOTIFICATION_BASE_URL as string | undefined) || 'http://localhost:3010'
+const BACKEND_PATH = '/api/backend'
+const NOTIFICATIONS_PATH = '/api/notifications'
+const FALLBACK_BACKEND_ORIGIN = 'http://localhost:3838'
+const FALLBACK_NOTIFICATION_ORIGIN = 'http://localhost:3010'
+
+const resolveOrigin = (fallback: string) => {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+  return fallback
+}
+
+const ensureServicePath = (inputUrl: string | undefined, requiredPath: string, fallback: string) => {
+  const base = (inputUrl && inputUrl.trim()) || resolveOrigin(fallback)
+  const normalizedBase = base.replace(/\/+$/, '')
+  const normalizedPath = requiredPath.startsWith('/') ? requiredPath : `/${requiredPath}`
+
+  if (normalizedBase.endsWith(normalizedPath) || normalizedBase.includes(`${normalizedPath}/`)) {
+    return normalizedBase
+  }
+
+  return `${normalizedBase}${normalizedPath}`
+}
+
+function getBaseUrl() {
+  const customUrl = typeof window !== 'undefined' ? (window as any).CUSTOM_API_URL : undefined
+  return ensureServicePath(customUrl, BACKEND_PATH, FALLBACK_BACKEND_ORIGIN)
+}
+
+function getNotificationBaseUrl() {
+  const customUrl =
+    typeof window !== 'undefined' ? (window as any).CUSTOM_NOTIFICATION_URL : undefined
+  return ensureServicePath(customUrl, NOTIFICATIONS_PATH, FALLBACK_NOTIFICATION_ORIGIN)
+}
+
+// Remove the constants - functions should be called dynamically
+
+// Export functions to set custom URLs
+export function setCustomApiUrl(url: string) {
+  if (typeof window !== 'undefined') {
+    (window as any).CUSTOM_API_URL = url
+  }
+}
+
+export function setCustomNotificationUrl(url: string) {
+  if (typeof window !== 'undefined') {
+    (window as any).CUSTOM_NOTIFICATION_URL = url
+  }
+}
 
 export type Visibility = 'public' | 'private'
 
@@ -39,7 +84,6 @@ export type WebPushSubscription = {
 
 type ApiOptions = {
   token?: string | null
-  baseUrl?: string
   init?: RequestInit
   notificationBaseUrl?: string
 }
@@ -55,8 +99,8 @@ export class HttpError extends Error {
   }
 }
 
-const normalizeBaseUrl = (baseUrl?: string) => {
-  const raw = baseUrl || DEFAULT_BASE_URL
+const normalizeBaseUrl = () => {
+  const raw = getBaseUrl()
   const hasProtocol = /^https?:\/\//i.test(raw) || /^wss?:\/\//i.test(raw)
   const withProtocol = hasProtocol ? raw : `http://${raw}`
   return withProtocol.replace(/\/$/, '')
@@ -64,9 +108,9 @@ const normalizeBaseUrl = (baseUrl?: string) => {
 
 export async function apiFetch<T>(
   path: string,
-  { token, baseUrl, init }: ApiOptions = {},
+  { token, init }: ApiOptions = {},
 ): Promise<T> {
-  const url = `${normalizeBaseUrl(baseUrl)}${path}`
+  const url = `${normalizeBaseUrl()}${path}`
 
   const headers = new Headers(init?.headers ?? {})
   if (!headers.has('Content-Type')) {
@@ -204,10 +248,12 @@ export async function getMessages(
   return apiFetch<Message[]>(`/rooms/${params.room_id}/messages${queryString}`, opts)
 }
 
-export function buildRoomWsUrl(roomId: string, baseUrl?: string, token?: string) {
-  const base = normalizeBaseUrl(baseUrl)
-  const wsBase = base.replace(/^https?/i, (m) => (m.toLowerCase() === 'https' ? 'wss' : 'ws'))
-  const url = new URL(`/ws/rooms/${roomId}`, wsBase)
+export function buildRoomWsUrl(roomId: string, token?: string) {
+  // Convert to WebSocket origin by removing /api/backend path and converting protocol
+  const httpBase = normalizeBaseUrl().replace(/\/api\/backend$/, '')
+  const wsBase = httpBase.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')
+
+  const url = new URL(`/api/backend/ws/rooms/${roomId}`, wsBase)
   if (token) {
     url.searchParams.set('token', token)
   }
@@ -237,8 +283,8 @@ export async function subscribeWebPush(
   subscription: WebPushSubscription,
   opts: ApiOptions & { notificationBaseUrl?: string },
 ) {
-  const base = opts.notificationBaseUrl || DEFAULT_NOTIFICATION_URL
-  const url = `${normalizeBaseUrl(base)}/webpush/subscribe`
+  const base = opts.notificationBaseUrl || getNotificationBaseUrl()
+  const url = `${base}/webpush/subscribe`
   const headers = new Headers(opts.init?.headers ?? {})
   headers.set('Content-Type', 'application/json')
   if (opts.token) headers.set('Authorization', `Bearer ${opts.token}`)
@@ -256,4 +302,4 @@ export async function subscribeWebPush(
   return (await res.json()) as Record<string, unknown>
 }
 
-export { DEFAULT_BASE_URL, DEFAULT_NOTIFICATION_URL }
+export { getBaseUrl, getNotificationBaseUrl }

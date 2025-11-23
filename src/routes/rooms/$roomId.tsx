@@ -23,7 +23,7 @@ type SocketStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 function RoomPage() {
   const { roomId } = Route.useParams()
   const navigate = useNavigate()
-  const { token, userId, baseUrl, logout } = useSession()
+  const { token, userId, logout } = useSession()
 
   // Validate roomId parameter
   if (!roomId || roomId === 'undefined' || roomId === 'null') {
@@ -88,7 +88,7 @@ function RoomPage() {
         await delay(450) // artificial delay to surface loading state
         const initial = await getMessages(
           { room_id: roomId, page: pageToLoad, page_size: PAGE_SIZE },
-          { token, baseUrl },
+          { token },
         )
         if (!active) return
         mergeMessages(initial)
@@ -113,7 +113,7 @@ function RoomPage() {
     loadPage(1, true)
     ;(async () => {
       try {
-        const memberList = await getRoomMembers(roomId, { token, baseUrl })
+        const memberList = await getRoomMembers(roomId, { token })
         if (!active) return
         const map: Record<string, string> = {}
         memberList.forEach((m) => {
@@ -132,14 +132,14 @@ function RoomPage() {
     return () => {
       active = false
     }
-  }, [roomId, token, baseUrl])
+  }, [roomId, token])
 
   useEffect(() => {
     if (!token || !roomId || roomId === 'undefined' || roomId === 'null') {
       setSocketStatus('idle')
       return
     }
-    const url = buildRoomWsUrl(roomId, baseUrl, token)
+    const url = buildRoomWsUrl(roomId, token)
     const socket = new WebSocket(url)
     let closedByClient = false
     setSocketStatus('connecting')
@@ -173,7 +173,7 @@ function RoomPage() {
       closedByClient = true
       socket.close()
     }
-  }, [roomId, token, baseUrl, logout, navigate])
+  }, [roomId, token, logout, navigate])
 
   useEffect(() => {
     if (stickToBottomRef.current) {
@@ -192,7 +192,7 @@ function RoomPage() {
       await delay(450) // artificial delay for visible loading indicator
       const older = await getMessages(
         { room_id: roomId, page: nextPage, page_size: PAGE_SIZE },
-        { token, baseUrl },
+        { token },
       )
       mergeMessages(older)
       setPage(nextPage)
@@ -238,7 +238,7 @@ function RoomPage() {
       stickToBottomRef.current = true
       const newMessage = await sendMessage(
         { room_id: roomId, content },
-        { token, baseUrl },
+        { token },
       )
       const optimistic = {
         id: (newMessage as Message | undefined)?.id ?? crypto.randomUUID(),
@@ -263,7 +263,7 @@ function RoomPage() {
   const onLeave = async () => {
     if (!token || !roomId || roomId === 'undefined' || roomId === 'null') return
     try {
-      await leaveRoom(roomId, { token, baseUrl })
+      await leaveRoom(roomId, { token })
       navigate({ to: '/rooms' })
     } catch (err) {
       if (isAuthError(err)) {

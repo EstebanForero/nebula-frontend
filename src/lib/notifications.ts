@@ -31,17 +31,15 @@ export async function getPushSubscription() {
 
 export async function enablePush({
   token,
-  baseUrl,
   notificationBaseUrl,
 }: {
   token: string
-  baseUrl?: string
   notificationBaseUrl?: string
 }) {
   await requestNotificationPermission()
   await registerServiceWorker()
   const subscription = await getPushSubscription()
-  return subscribeWebPush(subscription, { token, baseUrl, notificationBaseUrl })
+  return subscribeWebPush(subscription, { token, notificationBaseUrl })
 }
 
 function urlBase64ToUint8Array(base64String: string) {

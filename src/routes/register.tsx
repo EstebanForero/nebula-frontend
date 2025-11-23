@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 
 import { register } from '../lib/api'
-import { useSession } from '../components/SessionProvider'
 
 export const Route = createFileRoute('/register')({
   component: RegisterPage,
@@ -11,8 +10,7 @@ export const Route = createFileRoute('/register')({
 
 function RegisterPage() {
   const navigate = useNavigate()
-  const { baseUrl } = useSession()
-  const [username, setUsername] = useState('')
+    const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -24,11 +22,11 @@ function RegisterPage() {
     setError(null)
     setLoading(true)
     try {
-      await register({ username, email, password }, { baseUrl })
+      await register({ username, email, password }, {})
       setSuccess(true)
       setTimeout(() => navigate({ to: '/login' }), 600)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError('Invalid credentials')
     } finally {
       setLoading(false)
     }

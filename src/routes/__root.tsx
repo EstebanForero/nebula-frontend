@@ -11,7 +11,7 @@ export const Route = createRootRoute({
 })
 
 function RootLayout() {
-  const { token, logout, baseUrl, setBaseUrl } = useSession()
+  const { token, logout, baseUrl } = useSession()
   const [notifStatus, setNotifStatus] = useState<'idle' | 'pending' | 'enabled' | 'error'>('idle')
   const [notifError, setNotifError] = useState<string | null>(null)
 
@@ -23,7 +23,7 @@ function RootLayout() {
     setNotifStatus('pending')
     setNotifError(null)
     try {
-      await enablePush({ token, baseUrl })
+      await enablePush({ token })
       setNotifStatus('enabled')
     } catch (err) {
       setNotifStatus('error')
@@ -69,12 +69,9 @@ function RootLayout() {
               <span className="text-[11px] uppercase tracking-[0.25em] text-slate-500">
                 API
               </span>
-              <input
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                className="w-52 bg-transparent text-white focus:outline-none"
-                title="Base URL for API requests"
-              />
+              <span className="w-52 text-white truncate" title={`API URL: ${baseUrl}`}>
+                {baseUrl}
+              </span>
             </div>
             <button
               onClick={handleEnableNotifications}

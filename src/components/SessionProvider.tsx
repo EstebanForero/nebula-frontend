@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
-import { DEFAULT_BASE_URL } from '../lib/api'
+import { getBaseUrl } from '../lib/api'
 
 type SessionContextType = {
   token: string | null
@@ -30,10 +30,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return stored ? decodeJwtSub(stored) : null
   })
 
-  const [baseUrl, setBaseUrlState] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_BASE_URL
-    return localStorage.getItem(BASE_URL_KEY) || DEFAULT_BASE_URL
-  })
+  const [baseUrl, setBaseUrlState] = useState<string>('',)
+
+  // Initialize baseUrl on mount when window is definitely available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedUrl = localStorage.getItem(BASE_URL_KEY)
+      if (storedUrl) {
+        setBaseUrlState(storedUrl)
+      } else {
+        setBaseUrlState(getBaseUrl())
+      }
+    }
+  }, [])
   const [user, setUser] = useState<{ id: string; username: string; email: string } | null>(null)
 
   useEffect(() => {
