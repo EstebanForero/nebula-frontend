@@ -1,17 +1,21 @@
 const BACKEND_PATH = '/api/backend'
 const NOTIFICATIONS_PATH = '/api/notifications'
-const FALLBACK_BACKEND_ORIGIN = 'http://localhost:3838'
-const FALLBACK_NOTIFICATION_ORIGIN = 'http://localhost:3010'
+const FALLBACK_BACKEND_ORIGIN = ''
+const FALLBACK_NOTIFICATION_ORIGIN = ''
 
-const resolveOrigin = (fallback: string) => {
+const resolveOrigin = (fallback?: string) => {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin
   }
   return fallback
 }
 
-const ensureServicePath = (inputUrl: string | undefined, requiredPath: string, fallback: string) => {
-  const base = (inputUrl && inputUrl.trim()) || resolveOrigin(fallback)
+const ensureServicePath = (
+  inputUrl: string | undefined,
+  requiredPath: string,
+  fallback?: string,
+) => {
+  const base = (inputUrl && inputUrl.trim()) || resolveOrigin(fallback) || ''
   const normalizedBase = base.replace(/\/+$/, '')
   const normalizedPath = requiredPath.startsWith('/') ? requiredPath : `/${requiredPath}`
 
@@ -22,15 +26,48 @@ const ensureServicePath = (inputUrl: string | undefined, requiredPath: string, f
   return `${normalizedBase}${normalizedPath}`
 }
 
+const alignWithPageProtocol = (url: string) => {
+  if (typeof window === 'undefined') return url
+  try {
+    const parsed = new URL(url)
+    if (window.location.protocol === 'https:' && parsed.protocol === 'http:' && parsed.host === window.location.host) {
+      parsed.protocol = 'https:'
+      return parsed.toString()
+    }
+    return parsed.toString()
+  } catch {
+    return url
+  }
+}
+
 function getBaseUrl() {
   const customUrl = typeof window !== 'undefined' ? (window as any).CUSTOM_API_URL : undefined
-  return ensureServicePath(customUrl, BACKEND_PATH, FALLBACK_BACKEND_ORIGIN)
+  const runtimeEnv =
+    typeof window !== 'undefined' ? (window as any).ENV?.VITE_API_BASE_URL : undefined
+  const buildEnv = import.meta.env.VITE_API_BASE_URL as string | undefined
+  const windowOrigin = typeof window !== 'undefined' ? window.location?.origin : undefined
+  const candidate = customUrl || runtimeEnv || buildEnv || windowOrigin
+  return ensureServicePath(
+    candidate,
+    BACKEND_PATH,
+    runtimeEnv || buildEnv || windowOrigin || FALLBACK_BACKEND_ORIGIN,
+  )
 }
 
 function getNotificationBaseUrl() {
   const customUrl =
     typeof window !== 'undefined' ? (window as any).CUSTOM_NOTIFICATION_URL : undefined
-  return ensureServicePath(customUrl, NOTIFICATIONS_PATH, FALLBACK_NOTIFICATION_ORIGIN)
+  const runtimeEnv =
+    typeof window !== 'undefined' ? (window as any).ENV?.VITE_NOTIFICATION_BASE_URL : undefined
+  const buildEnv = import.meta.env.VITE_NOTIFICATION_BASE_URL as string | undefined
+  const windowOrigin = typeof window !== 'undefined' ? window.location?.origin : undefined
+  const candidate = customUrl || runtimeEnv || buildEnv || windowOrigin
+  const base = ensureServicePath(
+    candidate,
+    NOTIFICATIONS_PATH,
+    runtimeEnv || buildEnv || windowOrigin || FALLBACK_NOTIFICATION_ORIGIN,
+  )
+  return alignWithPageProtocol(base)
 }
 
 // Remove the constants - functions should be called dynamically

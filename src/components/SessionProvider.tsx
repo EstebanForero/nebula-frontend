@@ -36,11 +36,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedUrl = localStorage.getItem(BASE_URL_KEY)
-      if (storedUrl) {
-        setBaseUrlState(storedUrl)
-      } else {
-        setBaseUrlState(getBaseUrl())
-      }
+      setBaseUrlState(storedUrl || getBaseUrl())
     }
   }, [])
   const [user, setUser] = useState<{ id: string; username: string; email: string } | null>(null)

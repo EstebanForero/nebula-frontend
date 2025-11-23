@@ -33,7 +33,7 @@ function RoomPage() {
 
   const PAGE_SIZE = 20
 
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<(Message & { pending?: boolean })[]>([])
   const [content, setContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -46,6 +46,7 @@ function RoomPage() {
   const stickToBottomRef = useRef(true)
   const lastScrollTopRef = useRef<number>(0)
   const [members, setMembers] = useState<Record<string, string>>({})
+  const [copyToast, setCopyToast] = useState<string | null>(null)
 
   const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
@@ -56,9 +57,9 @@ function RoomPage() {
 
   const mergeMessages = (incoming: Message[]) => {
     setMessages((prev) => {
-      const map = new Map<string, Message>()
+      const map = new Map<string, Message & { pending?: boolean }>()
       ;[...prev, ...incoming].forEach((msg) => {
-        map.set(msg.id, msg)
+        map.set(msg.id, { ...msg, pending: false })
       })
       return Array.from(map.values())
     })
@@ -233,24 +234,34 @@ function RoomPage() {
       setError('Log in to send messages.')
       return
     }
+    const tempId = crypto.randomUUID()
+    const optimistic: Message & { pending?: boolean } = {
+      id: tempId,
+      roomId,
+      senderId: userId,
+      content,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    }
+    setError(null)
+    stickToBottomRef.current = true
+    setMessages((prev) => [...prev, optimistic])
+    setContent('')
+
     try {
-      setError(null)
-      stickToBottomRef.current = true
-      const newMessage = await sendMessage(
+      const saved = await sendMessage(
         { room_id: roomId, content },
         { token },
       )
-      const optimistic = {
-        id: (newMessage as Message | undefined)?.id ?? crypto.randomUUID(),
-        roomId: roomId,
-        senderId: userId,
-        content,
-        createdAt:
-          (newMessage as Message | undefined)?.createdAt ?? new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, (newMessage as Message) || (optimistic as Message)])
-      setContent('')
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, ...(saved as Message | undefined), pending: false }
+            : msg,
+        ),
+      )
     } catch (err) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId))
       if (isAuthError(err)) {
         logout()
         navigate({ to: '/login' })
@@ -275,13 +286,35 @@ function RoomPage() {
     }
   }
 
-  const contentArea = token ? (
+  const memberList = useMemo(
+    () =>
+      Object.entries(members)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [members],
+  )
+
+  const chatPane = (
     <section className="flex h-[75vh] flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-white/[0.02] shadow-2xl shadow-cyan-500/5">
       <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Live feed</p>
           <h2 className="text-xl font-semibold text-white">Room timeline</h2>
-          <p className="mt-1 text-xs text-slate-400 break-all">ID: {roomId}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span className="break-all">ID: {roomId}</span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(roomId)
+                setCopyToast('Room ID copied')
+                setTimeout(() => setCopyToast(null), 2500)
+              }}
+              className="rounded-full border border-white/15 px-2 py-1 text-[11px] font-semibold text-white hover:border-cyan-400/60"
+              title="Copy room ID to invite others"
+            >
+              Copy ID
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -313,26 +346,39 @@ function RoomPage() {
         {sortedMessages.map((message) => {
           const isMine = userId && message.senderId === userId
           const displayName = isMine ? 'You' : members[message.senderId] || message.senderId
+          const pending = message.pending
           return (
             <article
               key={message.id}
               className={`group rounded-xl border px-4 py-3 text-sm shadow-inner shadow-black/20 ${
                 isMine
-                  ? 'ml-auto max-w-[85%] border-cyan-500/40 bg-cyan-500/10 text-white'
+                  ? pending
+                    ? 'ml-auto max-w-[85%] border-fuchsia-400/40 bg-fuchsia-500/10 text-white'
+                    : 'ml-auto max-w-[85%] border-cyan-500/40 bg-cyan-500/10 text-white'
                   : 'border-white/5 bg-white/5 text-white'
               }`}
             >
               <div className="flex items-center justify-between text-xs text-slate-300">
                 <span
                   className={`font-mono text-[11px] ${
-                    isMine ? 'text-cyan-200' : 'text-slate-400'
+                    isMine ? (pending ? 'text-fuchsia-100' : 'text-cyan-200') : 'text-slate-400'
                   }`}
                 >
                   {displayName}
                 </span>
-                <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
+                <span>
+                  {(() => {
+                    const d = new Date(message.createdAt)
+                    return Number.isNaN(d.getTime()) ? 'Now' : d.toLocaleTimeString()
+                  })()}
+                </span>
               </div>
               <p className="mt-2 leading-relaxed text-slate-100">{message.content}</p>
+              {pending && (
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-fuchsia-200">
+                  Sending…
+                </p>
+              )}
             </article>
           )
         })}
@@ -357,7 +403,9 @@ function RoomPage() {
         </div>
       </form>
     </section>
-  ) : (
+  )
+
+  const loginPrompt = (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
       <h1 className="text-3xl font-semibold text-white">Authentication required</h1>
       <p className="text-slate-400">
@@ -380,7 +428,79 @@ function RoomPage() {
     </div>
   )
 
-  return <RoomsShell activeRoomId={roomId}>{contentArea}</RoomsShell>
+  const membersPane = token ? (
+    <aside className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/20">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400">Members</p>
+          <p className="text-sm text-white">{memberList.length} people</p>
+        </div>
+      </div>
+      <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+        {memberList.length === 0 && <p className="text-xs text-slate-500">No members listed.</p>}
+        {memberList.map((m) => (
+          <div
+            key={m.id}
+            className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+          >
+            <span className="truncate" title={m.name}>
+              {m.name}
+            </span>
+            <span className="truncate text-[11px] text-slate-400" title={m.id}>
+              {m.id.slice(0, 6)}…{m.id.slice(-4)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  ) : null
+
+  return (
+    <>
+      <RoomsShell activeRoomId={roomId}>
+        {token ? (
+          <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
+            <div>{chatPane}</div>
+            <div className="hidden lg:block">{membersPane}</div>
+            <div className="lg:hidden">
+              {memberList.length > 0 && (
+                <details className="rounded-xl border border-white/10 bg-white/5 p-3 text-white">
+                  <summary className="cursor-pointer text-sm font-semibold text-white">
+                    Members ({memberList.length})
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    {memberList.map((m) => (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                      >
+                        <span className="truncate">{m.name}</span>
+                        <span className="truncate text-[11px] text-slate-400">
+                          {m.id.slice(0, 6)}…{m.id.slice(-4)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          </div>
+        ) : (
+          loginPrompt
+        )}
+      </RoomsShell>
+      {copyToast && <CopyToast message={copyToast} />}
+    </>
+  )
+}
+
+// Lightweight toast for copy feedback
+function CopyToast({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-50 shadow-lg shadow-emerald-500/20">
+      {message}
+    </div>
+  )
 }
 
 function StatusPill({ status }: { status: SocketStatus }) {
