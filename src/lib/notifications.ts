@@ -1,7 +1,16 @@
 import { subscribeWebPush, type WebPushSubscription } from './api'
 
+const getRuntimeEnv = (key: string): string | undefined => {
+  if (typeof window === 'undefined') return undefined
+  const env = (window as any).ENV || (window as any).env || {}
+  const value = env[key]
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
 const VAPID_PUBLIC_KEY =
-  (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) || ''
+  getRuntimeEnv('VITE_VAPID_PUBLIC_KEY') ||
+  (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) ||
+  ''
 
 export async function requestNotificationPermission() {
   if (!('Notification' in window)) throw new Error('Notifications are not supported in this browser')
