@@ -12,9 +12,9 @@ export const Route = createFileRoute('/register')({
 function RegisterPage() {
   const navigate = useNavigate()
   const { baseUrl } = useSession()
-  const [username, setUsername] = useState('user')
-  const [email, setEmail] = useState('user@gmail.com')
-  const [password, setPassword] = useState('user')
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -49,7 +49,6 @@ function RegisterPage() {
           <label className="block space-y-2">
             <span className="text-sm text-slate-300">Username</span>
             <input
-              value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
               placeholder="nebulae"
@@ -61,7 +60,6 @@ function RegisterPage() {
             <span className="text-sm text-slate-300">Email</span>
             <input
               type="email"
-              value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
               placeholder="you@nebula.dev"
@@ -73,7 +71,6 @@ function RegisterPage() {
             <span className="text-sm text-slate-300">Password</span>
             <input
               type="password"
-              value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
               placeholder="••••••••"

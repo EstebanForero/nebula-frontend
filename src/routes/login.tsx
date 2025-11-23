@@ -53,7 +53,6 @@ function LoginPage() {
           <label className="block space-y-2">
             <span className="text-sm text-slate-300">Email or username</span>
             <input
-              value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               placeholder="you@example.com"
@@ -65,7 +64,6 @@ function LoginPage() {
             <span className="text-sm text-slate-300">Password</span>
             <input
               type="password"
-              value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               placeholder="••••••••"
