@@ -16,9 +16,14 @@ function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const passwordValid = password.length >= 8 && /\d/.test(password)
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (!passwordValid) {
+      setError('Password must be at least 8 characters and include a digit.')
+      return
+    }
     setError(null)
     setLoading(true)
     try {
@@ -26,7 +31,11 @@ function RegisterPage() {
       setSuccess(true)
       setTimeout(() => navigate({ to: '/login' }), 600)
     } catch (err) {
-      setError('Invalid credentials')
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Unable to register. Please check your details.'
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -74,6 +83,9 @@ function RegisterPage() {
               placeholder="••••••••"
               required
             />
+            <p className="text-xs text-slate-500">
+              At least 8 characters and 1 number. Current: {password.length} chars
+            </p>
           </label>
 
           {error && <p className="text-sm text-rose-400">{error}</p>}

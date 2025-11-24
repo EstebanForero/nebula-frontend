@@ -32,7 +32,9 @@ function LoginPage() {
       }
       navigate({ to: '/rooms' })
     } catch (err) {
-      setError('Invalid credentials')
+      const message =
+        err instanceof Error && err.message ? err.message : 'Unable to log in. Please try again.'
+      setError(message)
     } finally {
       setLoading(false)
     }

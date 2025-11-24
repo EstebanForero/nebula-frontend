@@ -82,6 +82,18 @@ function RoomPage() {
     if (!token || !roomId || roomId === 'undefined' || roomId === 'null') return
     let active = true
 
+    // Reset state when switching rooms to avoid showing stale data
+    setMessages([])
+    setMembers({})
+    setPage(1)
+    setHasMore(true)
+    setError(null)
+    stickToBottomRef.current = true
+    lastScrollTopRef.current = 0
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = 0
+    }
+
     const loadPage = async (pageToLoad: number, stickBottom = false) => {
       setLoading(true)
       setError(null)
@@ -457,7 +469,7 @@ function RoomPage() {
 
   return (
     <>
-      <RoomsShell activeRoomId={roomId}>
+      <RoomsShell key={roomId} activeRoomId={roomId}>
         {token ? (
           <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
             <div>{chatPane}</div>
